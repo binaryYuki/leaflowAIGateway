@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1.7
 
 # ---- Base image ----
-FROM python:3.11-slim AS base
+FROM python:3.13-slim AS base
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1
 
@@ -23,15 +23,6 @@ COPY main.py ./
 # Non-root user
 RUN useradd -m -u 10001 appuser
 USER appuser
-
-# randomly generate a static API key if not provided (for demo purposes)
-RUN if [ -z "$STATIC_API_KEY" ]; then \
-        export STATIC_API_KEY=$(head /dev/urandom | tr -dc A-Za-z0-9 | head -c 32 ; echo ''); \
-    fi && \
-    echo "Static API Key: $STATIC_API_KEY" \
-    && echo "Set STATIC_API_KEY env var to override" \
-
-RUN echo $STATIC_API_KEY > /tmp/.static_api_key
 
 # Configurable environment (override at runtime as needed)
 ENV UPSTREAM_BASE_URL="http://llm.ai-infra.svc.cluster.local/v1" \

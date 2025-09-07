@@ -1,5 +1,7 @@
 # Leaflet AI Proxy
 
+Docker Image: `docker.io/akkk1234/leafletgateway:latest`
+
 一个基于 FastAPI 的轻量级 OpenAI 兼容 API 代理服务，专为 [Leaflow 论坛分享的免费大模型 API](https://forum.leaflow.net/d/13-%E7%8E%B0%E5%9C%A8%E5%8F%AF%E4%BB%A5%E5%85%8D%E8%B4%B9%E4%BD%BF%E7%94%A8%E5%A4%A7%E6%A8%A1%E5%9E%8B-api) 设计。
 
 ## ✨ 特性
@@ -136,16 +138,16 @@ curl -X POST http://localhost:8080/v1/embeddings \
 
 ## 🔧 配置说明
 
-| 环境变量 | 必需 | 默认值 | 说明 |
-|---------|------|--------|------|
-| `UPSTREAM_BASE_URL` | ✅ | - | 上游 API 服务的基础 URL |
-| `STATIC_API_KEY` | ❌ | - | 静态 API 密钥，当请求头无 Authorization 时使用 |
-| `CONNECT_TIMEOUT` | ❌ | 5 | 连接超时时间（秒） |
-| `READ_TIMEOUT` | ❌ | 600 | 读取超时时间（秒） |
-| `MAX_KEEPALIVE` | ❌ | 100 | 最大保持活跃连接数 |
-| `MAX_CONNECTIONS` | ❌ | 200 | 最大连接数 |
-| `RETRY_TIMES` | ❌ | 2 | 请求重试次数 |
-| `PORT` | ❌ | 8080 | 服务端口 |
+| 环境变量                | 必需 | 默认值  | 说明                                |
+|---------------------|----|------|-----------------------------------|
+| `UPSTREAM_BASE_URL` | ✅  | -    | 上游 API 服务的基础 URL                  |
+| `STATIC_API_KEY`    | ❌  | -    | 静态 API 密钥，当请求头无 Authorization 时使用 |
+| `CONNECT_TIMEOUT`   | ❌  | 5    | 连接超时时间（秒）                         |
+| `READ_TIMEOUT`      | ❌  | 600  | 读取超时时间（秒）                         |
+| `MAX_KEEPALIVE`     | ❌  | 100  | 最大保持活跃连接数                         |
+| `MAX_CONNECTIONS`   | ❌  | 200  | 最大连接数                             |
+| `RETRY_TIMES`       | ❌  | 2    | 请求重试次数                            |
+| `PORT`              | ❌  | 8080 | 服务端口                              |
 
 ## 🔐 认证机制
 

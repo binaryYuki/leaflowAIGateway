@@ -11,7 +11,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 UPSTREAM_BASE_URL = os.getenv("UPSTREAM_BASE_URL", "http://llm.ai-infra.svc.cluster.local/v1")
 # If set, this key will be used when the incoming request has no Authorization header.
-STATIC_API_KEY = os.getenv("STATIC_API_KEY", "")
+STATIC_API_KEY = os.getenv("STATIC_API_KEY")
 
 # Tuning knobs
 CONNECT_TIMEOUT = float(os.getenv("CONNECT_TIMEOUT", "5"))
@@ -50,15 +50,8 @@ def _normalize_key(raw: str) -> str:
     return raw
 
 
-async def _build_auth_header(incoming_auth: Optional[str]) -> Dict[str, str]:
-    token = ""
-
-    # Prefer incoming Authorization header
-    if incoming_auth:
-        token = _normalize_key(incoming_auth)
-    # Fallback to env STATIC_API_KEY
-    if not token and STATIC_API_KEY:
-        token = _normalize_key(STATIC_API_KEY)
+async def _build_auth_header() -> Dict[str, str]:
+    token = _normalize_key(STATIC_API_KEY)
 
     if not token:
         # Upstream requires a token
@@ -79,6 +72,7 @@ async def _startup() -> None:
     )
     client = httpx.AsyncClient(base_url=UPSTREAM_BASE_URL, http2=True, limits=limits, timeout=timeout)
 
+
 @app.on_event("shutdown")
 async def _shutdown() -> None:
     global client
@@ -87,7 +81,51 @@ async def _shutdown() -> None:
         client = None
 
 
-async def _retry_request(method: str, url: str, *, headers: Dict[str, str], json_body: Any | None = None, params: Dict[str, Any] | None = None) -> httpx.Response:
+@app.middleware("http")
+async def API_KEY_auth(request: Request, call_next):
+    """
+    Simple middleware to enforce presence of a valid API key in the Authorization header.
+    If STATIC_API_KEY is set, it will be used as a fallback if the incoming request has no Authorization header.
+    1. If neither is present, return 401.
+    2. If the key is present but invalid, return 403.
+    3. If valid, proceed to the requested endpoint.
+    4. If STATIC_API_KEY is set, it will be used as a fallback if the incoming request has no Authorization header.
+    :param request:
+    :param call_next:
+    :return:
+    """
+    # This middleware can be used for global auth checks if needed
+    key = request.headers.get("Authorization")
+    # add request id header
+    # 生成 request ID（加到 response header）
+    request_id = "ns3::" + os.urandom(16).hex()
+
+    # 获取 Authorization
+    key = request.headers.get("Authorization")
+    if key:
+        key = key.replace("Bearer ", "").strip()
+    elif STATIC_API_KEY:
+        key = STATIC_API_KEY
+    else:
+        return JSONResponse(
+            status_code=401,
+            content={"detail": "Missing API token. Supply Authorization header and try again."},
+            headers={"Content-Type": "application/json", "X-Request-ID": request_id}
+        )
+
+    if key != os.environ.get('SERVICE_API_KEY'):
+        return JSONResponse(status_code=403, content={"detail": "Invalid API token."}, headers={"X-Request-ID": request_id})
+
+    # 继续处理请求
+    response = await call_next(request)
+
+    # 给 response 添加 request-id header
+    response.headers["x-request-id"] = request_id
+    return response
+
+
+async def _retry_request(method: str, url: str, *, headers: Dict[str, str], json_body: Any | None = None,
+                         params: Dict[str, Any] | None = None) -> httpx.Response:
     assert client is not None
     last_exc: Optional[Exception] = None
     for attempt in range(RETRY_TIMES + 1):
@@ -141,7 +179,7 @@ async def healthz() -> PlainTextResponse:
 
 @app.get("/v1/models")
 async def list_models(authorization: Optional[str] = Header(default=None, convert_underscores=False)) -> Response:
-    headers = await _build_auth_header(authorization)
+    headers = await _build_auth_header()
     resp = await _retry_request("GET", "/models", headers=headers)
     try:
         data = resp.json()
@@ -151,9 +189,10 @@ async def list_models(authorization: Optional[str] = Header(default=None, conver
 
 
 @app.post("/v1/embeddings")
-async def embeddings(request: Request, authorization: Optional[str] = Header(default=None, convert_underscores=False)) -> Response:
+async def embeddings(request: Request,
+                     authorization: Optional[str] = Header(default=None, convert_underscores=False)) -> Response:
     body = await request.json()
-    headers = await _build_auth_header(authorization)
+    headers = await _build_auth_header()
     resp = await _retry_request("POST", "/embeddings", headers=headers, json_body=body)
     # Pass through JSON or error JSON
     try:
@@ -164,7 +203,8 @@ async def embeddings(request: Request, authorization: Optional[str] = Header(def
 
 
 @app.post("/v1/chat/completions")
-async def chat_completions(request: Request, authorization: Optional[str] = Header(default=None, convert_underscores=False)) -> Response:
+async def chat_completions(request: Request,
+                           authorization: Optional[str] = Header(default=None, convert_underscores=False)) -> Response:
     """
     Proxy /v1/chat/completions with special handling for streaming.
     :param request:
@@ -172,13 +212,14 @@ async def chat_completions(request: Request, authorization: Optional[str] = Head
     :return:
     """
     body = await request.json()
-    headers = await _build_auth_header(authorization)
+    headers = await _build_auth_header()
     return await _proxy_stream_post("/chat/completions", headers=headers, body=body)
 
 
 # Optional: a generic passthrough if you want to support future endpoints without code changes
 @app.api_route("/v1/{rest_of_path:path}", methods=["GET", "POST", "PUT", "PATCH", "DELETE"])
-async def catch_all_v1(request: Request, rest_of_path: str, authorization: Optional[str] = Header(default=None, convert_underscores=False)) -> Response:
+async def catch_all_v1(request: Request, rest_of_path: str,
+                       authorization: Optional[str] = Header(default=None, convert_underscores=False)) -> Response:
     """
     A catch-all proxy for any other /v1/* paths not explicitly handled above.
     :param request:
@@ -190,7 +231,7 @@ async def catch_all_v1(request: Request, rest_of_path: str, authorization: Optio
     if rest_of_path in {"chat/completions", "embeddings", "models"}:
         raise HTTPException(status_code=405, detail="Method not allowed for this path (handled elsewhere)")
 
-    headers = await _build_auth_header(authorization)
+    headers = await _build_auth_header()
 
     # Build upstream URL
     upstream_path = f"/{rest_of_path}"
@@ -216,10 +257,12 @@ async def catch_all_v1(request: Request, rest_of_path: str, authorization: Optio
 
 if __name__ == "__main__":
     # check compulsory env vars
-    compulsory_vars = ["UPSTREAM_BASE_URL", "STATIC_API_KEY"]
+    compulsory_vars = ["UPSTREAM_BASE_URL", "STATIC_API_KEY", "SERVICE_API_KEY"]
     for var in compulsory_vars:
         if not os.getenv(var):
             raise RuntimeError(f"Environment variable {var} must be set")
+    print("Starting Leaflet")
 
     import uvicorn
+
     uvicorn.run("main:app", host="0.0.0.0", port=int(os.getenv("PORT", "8080")))
