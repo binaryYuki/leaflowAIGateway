@@ -1,0 +1,28 @@
+[project]
+name = "leaflet-ai"
+version = "0.1.0"
+description = "Add your description here"
+requires-python = ">=3.13"
+dependencies = [
+    "fastapi>=0.116.1",
+    "uvicorn>=0.35.0",
+    "httpx[http2]>=0.27.2",
+]
+
+[project.optional-dependencies]
+# 运行: pip install .[test]
+# 或使用 uv: uv pip install .[test]
+test = [
+    "pytest>=8.3.0",
+    "pytest-asyncio>=0.23.8",
+    "anyio>=4.4.0",
+    "respx>=0.21.1",
+]
+
+[tool.pytest.ini_options]
+addopts = "-q"
+filterwarnings = [
+  "ignore::DeprecationWarning:fastapi.*",
+]
+# 仅使用 asyncio 后端，避免自动再跑 trio 变体
+anyio_backend = "asyncio"

@@ -1,0 +1,54 @@
+# FastAPI Proxy 手动请求示例
+
+### 健康检查
+GET http://127.0.0.1:8000/healthz
+Accept: text/plain
+
+### 列出模型（需替换 YOUR_TOKEN）
+GET http://127.0.0.1:8000/v1/models
+Accept: application/json
+Authorization: Bearer YOUR_TOKEN
+
+### Embeddings 示例
+POST http://127.0.0.1:8000/v1/embeddings
+Accept: application/json
+Content-Type: application/json
+Authorization: Bearer YOUR_TOKEN
+
+{
+  "input": ["hello world"],
+  "model": "your-embedding-model"
+}
+
+### Chat Completions 非流式
+POST http://127.0.0.1:8000/v1/chat/completions
+Accept: application/json
+Content-Type: application/json
+Authorization: Bearer YOUR_TOKEN
+
+{
+  "model": "your-chat-model",
+  "messages": [
+    {"role": "user", "content": "你好，介绍一下你自己"}
+  ],
+  "stream": false
+}
+
+### Chat Completions 流式 (在支持 SSE 的客户端查看)
+POST http://127.0.0.1:8000/v1/chat/completions
+Accept: text/event-stream
+Content-Type: application/json
+Authorization: Bearer YOUR_TOKEN
+
+{
+  "model": "your-chat-model",
+  "messages": [
+    {"role": "user", "content": "讲一个笑话"}
+  ],
+  "stream": true
+}
+
+### 通用透传其它路径示例
+GET http://127.0.0.1:8000/v1/other-feature?foo=bar
+Accept: application/json
+Authorization: Bearer YOUR_TOKEN
