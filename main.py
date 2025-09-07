@@ -94,9 +94,6 @@ async def API_KEY_auth(request: Request, call_next):
     :param call_next:
     :return:
     """
-    # This middleware can be used for global auth checks if needed
-    key = request.headers.get("Authorization")
-    # add request id header
     # 生成 request ID（加到 response header）
     request_id = "ns3::" + os.urandom(16).hex()
 

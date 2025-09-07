@@ -142,6 +142,7 @@ curl -X POST http://localhost:8080/v1/embeddings \
 |---------------------|----|------|-----------------------------------|
 | `UPSTREAM_BASE_URL` | ✅  | -    | 上游 API 服务的基础 URL                  |
 | `STATIC_API_KEY`    | ❌  | -    | 静态 API 密钥，当请求头无 Authorization 时使用 |
+| `SERVICE_API_KEY`   | ❌  | -    | 访问服务本身所需的 APIKEY 如为空则是上游 key      |
 | `CONNECT_TIMEOUT`   | ❌  | 5    | 连接超时时间（秒）                         |
 | `READ_TIMEOUT`      | ❌  | 600  | 读取超时时间（秒）                         |
 | `MAX_KEEPALIVE`     | ❌  | 100  | 最大保持活跃连接数                         |
